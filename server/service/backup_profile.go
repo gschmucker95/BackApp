@@ -90,6 +90,14 @@ func ServiceDuplicateBackupProfile(id uint) (*entity.BackupProfile, error) {
 	duplicate.Name = original.Name + " (Copy)"
 	duplicate.Enabled = false // Duplicates are disabled by default
 
+	// Clear associations to prevent GORM from modifying original records
+	duplicate.Commands = nil
+	duplicate.FileRules = nil
+	duplicate.BackupRuns = nil
+	duplicate.Server = nil
+	duplicate.StorageLocation = nil
+	duplicate.NamingRule = nil
+
 	// Save the duplicate profile
 	if err := DB.Create(&duplicate).Error; err != nil {
 		return nil, err
