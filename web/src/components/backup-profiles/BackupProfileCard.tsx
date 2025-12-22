@@ -230,6 +230,7 @@ function BackupProfileCard({ profile, onExecute, onDelete, onEdit, onRefresh }: 
                   <FileRulesDisplay
                     fileRules={profile.file_rules || []}
                     profileId={profile.id}
+                    serverId={profile.server_id}
                     onFileRulesChanged={() => {
                       onRefresh?.();
                     }}
