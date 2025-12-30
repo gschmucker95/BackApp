@@ -10,6 +10,7 @@
     "pretest": "npm run build-server",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
+    "test-ci": "playwright test",
     "test:report": "playwright show-report",
     "lint": "eslint .",
     "preview": "vite preview"

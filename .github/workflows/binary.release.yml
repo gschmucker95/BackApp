@@ -1,0 +1,45 @@
+name: Release BackApp
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-test:
+    uses: ./.github/workflows/binary.test.yml
+    secrets: inherit
+  release:
+    name: Publish release
+    needs: build-and-test
+    if: ${{ needs.build-and-test.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Linux amd64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backapp-server-linux-amd64
+          path: artifacts
+
+      - name: Download Linux arm64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backapp-server-linux-arm64
+          path: artifacts
+
+      - name: Download Linux armv7 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backapp-server-linux-armv7
+          path: artifacts
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.workflow_run.head_branch }}
+          files: artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
