@@ -3,6 +3,11 @@ name: Test BackApp
 on:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      build_architecture:
+        required: false
+        type: string
+        default: 'amd64'
   push:
     branches:
       - '**'
@@ -14,6 +19,8 @@ permissions:
 jobs:
   build:
     uses: ./.github/workflows/binary.build.yml
+    with:
+      build_architecture: ${{ inputs.build_architecture || 'amd64' }}
     secrets: inherit
   test:
     name: Run Playwright Tests

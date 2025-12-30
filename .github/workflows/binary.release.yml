@@ -7,10 +7,13 @@ on:
 
 permissions:
   contents: write
+  checks: write
 
 jobs:
   build-and-test:
     uses: ./.github/workflows/binary.test.yml
+    with:
+      build_architecture: 'all'
     secrets: inherit
   release:
     name: Publish release

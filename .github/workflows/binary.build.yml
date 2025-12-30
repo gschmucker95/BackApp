@@ -2,47 +2,37 @@ name: Build BackApp
 
 on:
   workflow_dispatch:
+    inputs:
+      build_architecture:
+        description: 'Which architecture to build'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - 'all'
+          - 'amd64'
+          - 'arm64'
+          - 'raspberry-pi'
   workflow_call:
+    inputs:
+      build_architecture:
+        required: false
+        type: string
+        default: 'amd64'
 
 permissions:
   contents: read
 
 jobs:
   frontend:
-    name: Build frontend
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
-
-      - name: Build frontend
-        working-directory: web
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
-          npm run build
-
-      - name: Upload frontend
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-build
-          path: server/static
-          retention-days: 30
+    uses: ./.github/workflows/frontend.build.yml
+    secrets: inherit
 
   build-linux-amd64:
     name: Build Linux x86_64 Binary
     needs: frontend
     runs-on: ubuntu-latest
+    if: ${{ inputs.build_architecture == 'all' || inputs.build_architecture == 'amd64' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -88,6 +78,7 @@ jobs:
     name: Build Linux ARM64 Binary
     needs: frontend
     runs-on: ubuntu-latest
+    if: ${{ inputs.build_architecture == 'all' || inputs.build_architecture == 'arm64' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -139,6 +130,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ubuntu:20.04
+    if: ${{ inputs.build_architecture == 'all' || inputs.build_architecture == 'raspberry-pi' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
