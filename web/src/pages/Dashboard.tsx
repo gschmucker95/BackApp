@@ -16,7 +16,7 @@ import {
 import { useEffect, useState } from 'react';
 import { backupProfileApi, backupRunApi, namingRuleApi, serverApi, storageLocationApi } from '../api';
 import { BackupRunsList } from '../components/backup-profiles';
-import { PrerequisitesAlert } from '../components/common';
+import { PrerequisitesAlert, StorageWidget } from '../components/common';
 import type { BackupRun, NamingRule, StorageLocation } from '../types';
 
 interface DashboardStats {
@@ -173,24 +173,31 @@ function Dashboard() {
         </Grid>
       </Grid>
 
-      <PrerequisitesAlert storageLocationsCount={storageLocations.length} namingRulesCount={namingRules.length} />
+      <Grid container spacing={3} mb={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <StorageWidget />
+        </Grid>
+        <Grid size={{ xs: 12, md: 8 }}>
+          <Paper sx={{ height: '100%' }}>
+            <Box p={2} display="flex" justifyContent="space-between" alignItems="center" borderBottom={1} borderColor="divider">
+              <Typography variant="h6">Recent Backup Runs</Typography>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                disabled={storageLocations.length === 0 || namingRules.length === 0}
+                href="/backup-profiles"
+              >
+                Create Profile
+              </Button>
+            </Box>
+            <Box p={2}>
+              <BackupRunsList runs={recentRuns} />
+            </Box>
+          </Paper>
+        </Grid>
+      </Grid>
 
-      <Paper>
-        <Box p={2} display="flex" justifyContent="space-between" alignItems="center" borderBottom={1} borderColor="divider">
-          <Typography variant="h6">Recent Backup Runs</Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            disabled={storageLocations.length === 0 || namingRules.length === 0}
-            href="/backup-profiles"
-          >
-            Create Profile
-          </Button>
-        </Box>
-        <Box p={2}>
-          <BackupRunsList runs={recentRuns} />
-        </Box>
-      </Paper>
+      <PrerequisitesAlert storageLocationsCount={storageLocations.length} namingRulesCount={namingRules.length} />
     </Box>
   );
 }

@@ -71,6 +71,21 @@ func SetupRouter(r *gin.Engine) {
 		api.GET("/backup-files/:fileId/download", handleBackupFileDownload)
 		api.DELETE("/backup-files/:fileId", handleBackupFileDelete)
 
+		// Push notifications
+		api.GET("/notifications/vapid-key", handleGetVAPIDPublicKey)
+		api.POST("/notifications/subscribe", handleSubscribePush)
+		api.POST("/notifications/unsubscribe", handleUnsubscribePush)
+		api.GET("/notifications/subscription", handleGetSubscription)
+		api.GET("/notifications/preferences", handleGetNotificationPreferences)
+		api.POST("/notifications/preferences", handleCreateNotificationPreference)
+		api.PUT("/notifications/preferences/:id", handleUpdateNotificationPreference)
+		api.DELETE("/notifications/preferences/:id", handleDeleteNotificationPreference)
+		api.POST("/notifications/test", handleSendTestNotification)
+
+		// Storage usage
+		api.GET("/storage-usage", handleGetStorageUsage)
+		api.GET("/storage-locations/:id/usage", handleGetStorageLocationUsage)
+
 		// Test-only endpoints
 		if config.TestMode {
 			api.POST("/test/reset-database", handleResetDatabase)

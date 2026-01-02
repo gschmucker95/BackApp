@@ -39,6 +39,9 @@ func InitDB(dataSourceName string) {
 		&entity.BackupRun{},
 		&entity.BackupFile{},
 		&entity.BackupRunLog{},
+		&entity.PushSubscription{},
+		&entity.NotificationPreference{},
+		&entity.VAPIDKeys{},
 	)
 	if err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)

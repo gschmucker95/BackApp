@@ -2,6 +2,7 @@ import BackupIcon from '@mui/icons-material/Backup';
 import ComputerIcon from '@mui/icons-material/Computer';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import LabelIcon from '@mui/icons-material/Label';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StorageIcon from '@mui/icons-material/Storage';
 import {
@@ -40,6 +41,7 @@ function Layout({ children }: LayoutProps) {
   const configItems = [
     { path: '/storage-locations', label: 'Storage Locations', icon: <StorageIcon /> },
     { path: '/naming-rules', label: 'Naming Rules', icon: <LabelIcon /> },
+    { path: '/notifications', label: 'Notifications', icon: <NotificationsIcon /> },
   ];
 
   const getPageTitle = () => {
@@ -51,6 +53,7 @@ function Layout({ children }: LayoutProps) {
       '/backups': 'Backups',
       '/storage-locations': 'Storage Locations',
       '/naming-rules': 'Naming Rules',
+      '/notifications': 'Notifications',
     };
 
     if (location.pathname.startsWith('/backup-profiles/')) {

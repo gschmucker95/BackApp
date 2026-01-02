@@ -3,3 +3,5 @@ export { default as Modal } from './Modal';
 export { PrerequisitesAlert } from './PrerequisitesAlert';
 export { default as TabPanel } from './TabPanel';
 export { default as DestructiveActionDialog, type DestructiveAction, type DestructiveActionDialogProps } from './DestructiveActionDialog';
+export { NotificationBell } from './NotificationBell';
+export { StorageWidget } from './StorageWidget';

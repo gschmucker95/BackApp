@@ -64,18 +64,43 @@ func (e *BackupExecutor) ExecuteBackup(profileID uint, allowDisabled bool) error
 
 	e.logToDatabase(run.ID, "INFO", fmt.Sprintf("Starting backup for profile: %s", profile.Name))
 
+	// Send notification for backup started
+	if NotificationSvc != nil {
+		go NotificationSvc.NotifyBackupStarted(profileID, profile.Name)
+	}
+
 	// Execute backup and update status
 	err := e.executeBackupInternal(&profile, run)
 
 	// Update run status
 	run.EndTime = time.Now()
+	duration := run.EndTime.Sub(run.StartTime)
 	if err != nil {
 		run.Status = "failed"
 		run.ErrorMessage = err.Error()
 		e.logToDatabase(run.ID, "ERROR", fmt.Sprintf("Backup failed: %v", err))
+
+		// Send failure notification
+		if NotificationSvc != nil {
+			go NotificationSvc.NotifyBackupFailed(profileID, profile.Name, err.Error())
+
+			// Check for consecutive failures
+			failureCount := GetConsecutiveFailureCount(profileID)
+			if failureCount > 1 {
+				go NotificationSvc.NotifyConsecutiveFailures(profileID, profile.Name, failureCount)
+			}
+		}
 	} else {
 		run.Status = "completed"
 		e.logToDatabase(run.ID, "INFO", "Backup completed successfully")
+
+		// Send success notification
+		if NotificationSvc != nil {
+			go NotificationSvc.NotifyBackupSuccess(profileID, profile.Name, duration)
+		}
+
+		// Check storage usage and notify if low
+		go CheckLowStorage()
 	}
 
 	// Update the run record - using Save with the full struct

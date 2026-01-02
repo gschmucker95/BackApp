@@ -1,7 +1,7 @@
 # BackApp
 BackApp is a Go + React application that lets automatically schedule and inspect backups of remote servers via SSH.
 
-It is a very lightweight server (under 50 MB) that runs locally (or on a dedicated machine) and provides a web interface to manage backup profiles.
+It is a very lightweight server (~50 MB) that runs locally (or on a dedicated machine) and provides a web interface to manage backup profiles.
 
 ![Backup Profiles](./ScreenshotBackupProfiles.png)
 ![Backup Runs](./ScreenshotBackupRuns.png)

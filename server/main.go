@@ -46,6 +46,11 @@ func main() {
 	// Initialize database via service layer
 	service.InitDB(*dbPath)
 
+	// Initialize notification service
+	if err := service.InitNotificationService(); err != nil {
+		log.Printf("Warning: Failed to initialize notification service: %v", err)
+	}
+
 	// Initialize and load scheduled backups
 	scheduler := service.GetScheduler()
 	if err := scheduler.LoadAllSchedules(); err != nil {
@@ -83,6 +88,16 @@ func main() {
 		}
 		defer data.Close()
 		c.DataFromReader(http.StatusOK, -1, "image/svg+xml", data, nil)
+	})
+
+	// Serve service worker for push notifications
+	router.GET("/sw.js", func(c *gin.Context) {
+		data, err := embeddedStaticFiles.ReadFile("static/sw.js")
+		if err != nil {
+			c.String(http.StatusNotFound, "404 page not found")
+			return
+		}
+		c.Data(http.StatusOK, "application/javascript", data)
 	})
 
 	// Serve index.html for root and all non-API routes (SPA fallback)
