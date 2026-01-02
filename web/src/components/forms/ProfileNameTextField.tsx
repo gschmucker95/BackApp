@@ -5,6 +5,9 @@ interface ProfileNameTextFieldProps {
   onChange: (value: string) => void;
   required?: boolean;
   fullWidth?: boolean;
+  label?: string;
+  placeholder?: string;
+  helperText?: string;
 }
 
 export function ProfileNameTextField({
@@ -12,14 +15,19 @@ export function ProfileNameTextField({
   onChange,
   required = true,
   fullWidth = true,
+  label = 'Profile Name',
+  placeholder,
+  helperText,
 }: ProfileNameTextFieldProps) {
   return (
     <TextField
       fullWidth={fullWidth}
-      label="Profile Name"
+      label={label}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       required={required}
+      placeholder={placeholder}
+      helperText={helperText}
     />
   );
 }

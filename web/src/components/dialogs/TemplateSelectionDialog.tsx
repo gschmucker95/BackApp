@@ -13,8 +13,9 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import GenericTemplateWizard from '../templates/GenericTemplateWizard';
+import { getTemplateList } from '../../templates';
 
 interface TemplateSelectionDialogProps {
   open: boolean;
@@ -25,12 +26,6 @@ interface TemplateSelectionDialogProps {
 
 type TemplateType = 'scratch' | null;
 
-interface ServerTemplateItem {
-  id: string;
-  name: string;
-  description?: string;
-}
-
 function TemplateSelectionDialog({
   open,
   onClose,
@@ -38,24 +33,10 @@ function TemplateSelectionDialog({
   onSuccess,
 }: TemplateSelectionDialogProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>(null);
-  const [templates, setTemplates] = useState<ServerTemplateItem[]>([]);
   const [showGenericTemplate, setShowGenericTemplate] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    // Load available templates from server
-    (async () => {
-      try {
-        const res = await fetch('/api/v1/templates', { cache: 'no-cache' });
-        const items = await res.json();
-        setTemplates(Array.isArray(items) ? items : []);
-      } catch (e) {
-        console.error('Failed to load templates', e);
-        setTemplates([]);
-      }
-    })();
-  }, [open]);
+  const templates = getTemplateList();
 
   const handleTemplateSelect = (template: TemplateType) => {
     setSelectedTemplate(template);
@@ -126,7 +107,7 @@ function TemplateSelectionDialog({
                 </CardActionArea>
               </Card>
 
-              {/* Server-provided Templates */}
+              {/* Templates from frontend registry */}
               {templates.map((t) => (
                 <Card
                   key={t.id}
@@ -173,7 +154,7 @@ function TemplateSelectionDialog({
           open={showGenericTemplate}
           onClose={() => setShowGenericTemplate(false)}
           onSuccess={handleGenericSuccess}
-          templateUrl={`/api/v1/templates/${selectedTemplateId}`}
+          templateId={selectedTemplateId}
         />
       )}
     </>

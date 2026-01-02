@@ -46,6 +46,16 @@ function FileExplorerDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const normalizeSelectedPath = (path: string, isDir: boolean) => {
+    const normalized = (path || '').replace(/\\/g, '/');
+    if (!normalized) return normalized;
+    if (isDir) {
+      if (normalized === '/') return '/';
+      return normalized.endsWith('/') ? normalized : `${normalized}/`;
+    }
+    return normalized.endsWith('/') && normalized !== '/' ? normalized.replace(/\/+$/g, '') : normalized;
+  };
+
   useEffect(() => {
     if (open) {
       loadFiles(currentPath);
@@ -77,7 +87,7 @@ function FileExplorerDialog({
 
   const handleSelect = (entry: FileSystemEntry) => {
     if (!entry.is_dir || allowDirectories) {
-      onSelect(entry.path);
+      onSelect(normalizeSelectedPath(entry.path, entry.is_dir));
       onClose();
     }
   };
@@ -187,7 +197,8 @@ function FileExplorerDialog({
         <Button onClick={onClose}>Cancel</Button>
         <Button
           onClick={() => {
-            onSelect(currentPath);
+            // Selecting the current path is selecting a directory.
+            onSelect(normalizeSelectedPath(currentPath, true));
             onClose();
           }}
           variant="contained"

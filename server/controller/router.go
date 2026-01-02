@@ -65,10 +65,6 @@ func SetupRouter(r *gin.Engine) {
 		api.DELETE("/backup-runs/:id", handleBackupRunDelete)
 		api.GET("/backup-files/:fileId/download", handleBackupFileDownload)
 
-		// Templates
-		api.GET("/templates", handleTemplatesList)
-		api.GET("/templates/:id", handleTemplateGet)
-
 		// Test-only endpoints
 		if config.TestMode {
 			api.POST("/test/reset-database", handleResetDatabase)

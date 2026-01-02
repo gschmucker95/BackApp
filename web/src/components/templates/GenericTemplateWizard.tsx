@@ -1,66 +1,77 @@
 import { Close as CloseIcon } from '@mui/icons-material';
-import { Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Stack, Step, StepLabel, Stepper, TextField, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Stack,
+  Step,
+  StepLabel,
+  Stepper,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
-import { backupProfileApi, commandApi, namingRuleApi, serverApi, storageLocationApi, fileRuleApi } from '../../api';
+import { backupProfileApi, commandApi, fileRuleApi, namingRuleApi, serverApi, storageLocationApi } from '../../api';
+import { getTemplateById } from '../../templates';
+import type { Template, TemplateInput, TemplateStep, TemplateValues, UntypedTemplateContext } from '../../templates/types';
 import type { NamingRule, Server, StorageLocation } from '../../types';
-import { interpolate, computeDerived } from '../../templates/templateEngine';
 import PathPickerField from '../common/PathPickerField';
-import { NamingRuleSelector, StorageLocationSelector, CronTextField, ProfileNameTextField } from '../forms';
+import { CronTextField, NamingRuleSelector, StorageLocationSelector } from '../forms';
 
 interface GenericTemplateWizardProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  templateUrl: string; // e.g., "/templates/postgres-docker-compose.json"
+  templateId: string;
 }
 
-interface TemplateConfig {
-  id: string;
-  name: string;
-  steps: any[];
-  result: {
-    profile: Record<string, any>;
-    commands?: Array<{ run_stage: 'pre' | 'post'; command: string }>;
-    file_rules?: Array<{ remote_path: string; recursive?: boolean; exclude_pattern?: string }>;
-  };
-  computed?: Record<string, string>;
-}
-
-export default function GenericTemplateWizard({ open, onClose, onSuccess, templateUrl }: GenericTemplateWizardProps) {
+export default function GenericTemplateWizard({ open, onClose, onSuccess, templateId }: GenericTemplateWizardProps) {
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [template, setTemplate] = useState<TemplateConfig | null>(null);
 
   const [servers, setServers] = useState<Server[]>([]);
   const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
   const [namingRules, setNamingRules] = useState<NamingRule[]>([]);
 
-  // Collected variables across steps
-  const [vars, setVars] = useState<Record<string, any>>({});
+  const [selectedServer, setSelectedServer] = useState<Server | null>(null);
 
-  const steps = useMemo(() => template?.steps?.map((s) => s.title) || [], [template]);
+  // Collected variables across steps: { stepId: { inputId: value } }
+  const [values, setValues] = useState<TemplateValues>({});
+  const [touched, setTouched] = useState<Record<string, Record<string, boolean>>>({});
+
+  // Get the template from the registry
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const template: Template<any> | undefined = useMemo(() => getTemplateById(templateId), [templateId]);
+
+  // Step IDs: server selection first, then template steps
+  const stepIds = useMemo(() => {
+    if (!template) return ['__server__'];
+    return ['__server__', ...template.steps.map((s: TemplateStep) => s.id)];
+  }, [template]);
+
+  const stepLabels = useMemo(() => {
+    if (!template) return ['Server'];
+    return ['Server', ...template.steps.map((s: TemplateStep) => s.title)];
+  }, [template]);
 
   useEffect(() => {
     if (open) {
-      loadTemplate();
       loadRefs();
-    }
-  }, [open]);
-
-  const loadTemplate = async () => {
-    try {
-      const res = await fetch(templateUrl, { cache: 'no-cache' });
-      const json = await res.json();
-      setTemplate(json);
+      // Reset state
       setActiveStep(0);
-      setVars({});
+      setValues({});
+      setTouched({});
+      setSelectedServer(null);
       setError(null);
-    } catch (e) {
-      console.error('Failed to load template', e);
-      setError('Failed to load template');
     }
-  };
+  }, [open, templateId]);
 
   const loadRefs = async () => {
     try {
@@ -77,68 +88,113 @@ export default function GenericTemplateWizard({ open, onClose, onSuccess, templa
     }
   };
 
-  const setVar = (key: string, value: any) => setVars((v) => ({ ...v, [key]: value }));
+  const setValue = (stepId: string, inputId: string, value: any) => {
+    setValues((v) => ({
+      ...v,
+      [stepId]: {
+        ...(v[stepId] || {}),
+        [inputId]: value,
+      },
+    }));
+    setTouched((t) => ({
+      ...t,
+      [stepId]: {
+        ...(t[stepId] || {}),
+        [inputId]: true,
+      },
+    }));
+  };
 
-  const currentStep = template?.steps?.[activeStep];
+  const isTouched = (stepId: string, inputId: string) => !!touched?.[stepId]?.[inputId];
+
+  const currentStepId = stepIds[activeStep];
+  const currentTemplateStep = template?.steps.find((s: TemplateStep) => s.id === currentStepId);
+
+  // Build values with defaults applied
+  const buildValues = (): Record<string, Record<string, any>> => {
+    if (!template) return values;
+
+    const result = { ...values };
+
+    // Apply static defaults from input configs
+    for (const step of template.steps) {
+      if (!result[step.id]) result[step.id] = {};
+      for (const input of step.inputs) {
+        const cfg = input.config;
+        const existing = result[step.id]?.[input.id];
+        const touchedHere = isTouched(step.id, input.id);
+        const hasExisting = existing !== undefined && existing !== null && existing !== '';
+
+        if (!touchedHere && !hasExisting && 'default' in cfg && cfg.default !== undefined) {
+          result[step.id][input.id] = cfg.default;
+        }
+      }
+    }
+
+    return result;
+  };
+
+  const isRequiredMissing = (cfg: TemplateInput, value: any) => {
+    if (!cfg.required) return false;
+    if (cfg.type === 'number' || cfg.type === 'storage_location' || cfg.type === 'naming_rule') {
+      return value === '' || value === undefined || value === null || Number.isNaN(Number(value));
+    }
+    return value === undefined || value === null || String(value).trim() === '';
+  };
 
   const canNext = () => {
-    if (!currentStep) return false;
-    if (currentStep.type === 'selectServerRemotePath') {
-      return !!vars.server && !!vars.dockerComposePath;
+    if (!template || !currentStepId) return false;
+    if (currentStepId === '__server__') {
+      return !!selectedServer;
     }
-    if (currentStep.type === 'form') {
-      return true; // basic checks handled by UI
-    }
-    if (currentStep.type === 'profileDetails') {
-      return !!vars.profileName && !!vars.storageLocationId && !!vars.namingRuleId && !!vars.server;
+    if (!currentTemplateStep) return false;
+    const allValues = buildValues();
+    for (const input of currentTemplateStep.inputs) {
+      const value = allValues?.[currentStepId]?.[input.id];
+      if (isRequiredMissing(input.config, value)) return false;
     }
     return true;
   };
 
   const handleSubmit = async () => {
-    if (!template) return;
+    if (!template || !selectedServer) {
+      setError('Please select a server');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      let allVars = { ...vars };
-      if (template.computed) {
-        allVars = { ...allVars, ...computeDerived(allVars, template.computed) };
-      }
+      const allValues = buildValues();
+
+      // Build result using the template's callback
+      const ctx: UntypedTemplateContext = {
+        server: selectedServer,
+        values: allValues,
+        storageLocations,
+        namingRules,
+      };
+      const result = template.buildResult(ctx);
 
       // Create profile
-      const profilePayload = JSON.parse(interpolate(JSON.stringify(template.result.profile), allVars));
-      // Coerce numeric IDs to numbers for backend schema
-      for (const key of ['server_id', 'storage_location_id', 'naming_rule_id']) {
-        const v = (profilePayload as any)[key];
-        if (typeof v === 'string') {
-          const num = parseInt(v, 10);
-          if (!Number.isNaN(num)) {
-            (profilePayload as any)[key] = num;
-          }
-        }
-      }
-      const newProfile = await backupProfileApi.create(profilePayload);
+      const newProfile = await backupProfileApi.create(result.profile);
 
-      // Commands
-      const cmds = template.result.commands || [];
+      // Create commands
       let orderMap: Record<'pre' | 'post', number> = { pre: 0, post: 0 };
-      for (const c of cmds) {
-        const cmdStr = interpolate(c.command, allVars);
-        orderMap[c.run_stage] += 1;
+      for (const cmd of result.commands) {
+        orderMap[cmd.run_stage] += 1;
         await commandApi.create(newProfile.id, {
-          command: cmdStr,
-          run_stage: c.run_stage,
-          run_order: orderMap[c.run_stage],
+          command: cmd.command,
+          run_stage: cmd.run_stage,
+          run_order: orderMap[cmd.run_stage],
         });
       }
 
-      // File rules
-      for (const fr of template.result.file_rules || []) {
-        const remote_path = interpolate(fr.remote_path, allVars);
+      // Create file rules
+      for (const fr of result.fileRules) {
         await fileRuleApi.create(newProfile.id, {
-          remote_path,
+          remote_path: fr.remote_path,
           recursive: fr.recursive ?? false,
-          exclude_pattern: fr.exclude_pattern ? interpolate(fr.exclude_pattern, allVars) : undefined,
+          exclude_pattern: fr.exclude_pattern,
         });
       }
 
@@ -152,11 +208,141 @@ export default function GenericTemplateWizard({ open, onClose, onSuccess, templa
     }
   };
 
+  const renderInput = (stepId: string, inputId: string, inputCfg: TemplateInput) => {
+    const allValues = buildValues();
+    const value = allValues?.[stepId]?.[inputId];
+    const helperText = inputCfg.helperText || inputCfg.description;
+
+    if (inputCfg.type === 'path') {
+      const serverId = inputCfg.pathLocation === 'remote' ? selectedServer?.id : undefined;
+      return (
+        <PathPickerField
+          label={inputCfg.title}
+          title={inputCfg.title}
+          value={value || ''}
+          onChange={(v) => setValue(stepId, inputId, v)}
+          placeholder={inputCfg.placeholder}
+          helperText={helperText}
+          serverId={inputCfg.pathLocation === 'remote' ? serverId : undefined}
+          allowDirectories={inputCfg.directories ?? true}
+        />
+      );
+    }
+
+    if (inputCfg.type === 'storage_location') {
+      return (
+        <StorageLocationSelector
+          value={value ?? ''}
+          onChange={(v) => setValue(stepId, inputId, v)}
+          storageLocations={storageLocations}
+          required={!!inputCfg.required}
+          label={inputCfg.title}
+          placeholder={inputCfg.placeholder}
+          helperText={helperText}
+          showPath
+        />
+      );
+    }
+
+    if (inputCfg.type === 'naming_rule') {
+      return (
+        <NamingRuleSelector
+          value={value ?? ''}
+          onChange={(v) => setValue(stepId, inputId, v)}
+          namingRules={namingRules}
+          required={!!inputCfg.required}
+          label={inputCfg.title}
+          placeholder={inputCfg.placeholder}
+          helperText={helperText}
+          showPattern
+          showPreview
+        />
+      );
+    }
+
+    if (inputCfg.type === 'cron') {
+      return (
+        <CronTextField
+          value={value || ''}
+          onChange={(v) => setValue(stepId, inputId, v)}
+          required={!!inputCfg.required}
+          label={inputCfg.title}
+          placeholder={inputCfg.placeholder}
+          helperText={helperText}
+        />
+      );
+    }
+
+    if (inputCfg.type === 'password') {
+      return (
+        <TextField
+          key={`${stepId}.${inputId}`}
+          label={inputCfg.title}
+          type="password"
+          required={!!inputCfg.required}
+          value={value ?? ''}
+          placeholder={inputCfg.placeholder}
+          helperText={helperText}
+          onChange={(e) => setValue(stepId, inputId, e.target.value)}
+          fullWidth
+        />
+      );
+    }
+
+    if (inputCfg.type === 'number') {
+      return (
+        <TextField
+          key={`${stepId}.${inputId}`}
+          label={inputCfg.title}
+          type="number"
+          required={!!inputCfg.required}
+          value={value ?? ''}
+          placeholder={inputCfg.placeholder}
+          helperText={helperText}
+          onChange={(e) => {
+            const raw = e.target.value;
+            setValue(stepId, inputId, raw === '' ? '' : Number(raw));
+          }}
+          fullWidth
+        />
+      );
+    }
+
+    // Default: string input
+    return (
+      <TextField
+        key={`${stepId}.${inputId}`}
+        label={inputCfg.title}
+        type="text"
+        required={!!inputCfg.required}
+        value={value ?? ''}
+        placeholder={inputCfg.placeholder}
+        helperText={helperText}
+        onChange={(e) => setValue(stepId, inputId, e.target.value)}
+        fullWidth
+      />
+    );
+  };
+
+  if (!template) {
+    return (
+      <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+        <DialogTitle>Template Not Found</DialogTitle>
+        <DialogContent>
+          <Alert severity="error">Template "{templateId}" not found.</Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose}>Close</Button>
+        </DialogActions>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          {template?.name || 'Template Wizard'}
+          {template.name}
           <IconButton onClick={onClose} size="small">
             <CloseIcon />
           </IconButton>
@@ -165,7 +351,7 @@ export default function GenericTemplateWizard({ open, onClose, onSuccess, templa
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 2 }}>
           <Stepper activeStep={activeStep} sx={{ mb: 2 }}>
-            {steps.map((label) => (
+            {stepLabels.map((label) => (
               <Step key={label}>
                 <StepLabel>{label}</StepLabel>
               </Step>
@@ -174,78 +360,61 @@ export default function GenericTemplateWizard({ open, onClose, onSuccess, templa
 
           {error && <Alert severity="error">{error}</Alert>}
 
-          {currentStep?.type === 'selectServerRemotePath' && (
+          {currentTemplateStep && (
             <>
-              <Typography variant="subtitle1" fontWeight={600}>Server</Typography>
+              <Box>
+                {currentTemplateStep.description && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    {currentTemplateStep.description}
+                  </Typography>
+                )}
+              </Box>
+
+              {currentTemplateStep.inputs.map((input) =>
+                renderInput(currentStepId!, input.id, input.config)
+              )}
+            </>
+          )}
+
+          {currentStepId === '__server__' && (
+            <>
+              <Typography variant="body2" color="text.secondary">
+                Select the server this template will be used for.
+              </Typography>
               <Stack direction="row" spacing={1} flexWrap="wrap">
                 {servers.map((s) => (
                   <Button
                     key={s.id}
-                    variant={vars.server?.id === s.id ? 'contained' : 'outlined'}
-                    onClick={() => setVar('server', s)}
+                    variant={selectedServer?.id === s.id ? 'contained' : 'outlined'}
+                    onClick={() => {
+                      setSelectedServer(s);
+                      setActiveStep(activeStep + 1);
+                    }}
                     size="small"
                   >
                     {s.name}
                   </Button>
                 ))}
               </Stack>
-              <Typography variant="subtitle1" fontWeight={600}>Docker Compose Path</Typography>
-              <PathPickerField
-                label="Path"
-                value={vars.dockerComposePath || ''}
-                onChange={(v) => setVar('dockerComposePath', v)}
-                serverId={vars.server?.id}
-                allowDirectories={false}
-              />
-            </>
-          )}
-
-          {currentStep?.type === 'form' && (
-            <>
-              {(currentStep.fields || []).map((f: any) => (
-                <TextField
-                  key={f.name}
-                  label={f.label}
-                  type={f.type || 'text'}
-                  required={!!f.required}
-                  value={vars[f.name] ?? f.default ?? ''}
-                  onChange={(e) => setVar(f.name, e.target.value)}
-                  fullWidth
-                />
-              ))}
-            </>
-          )}
-
-          {currentStep?.type === 'profileDetails' && (
-            <>
-              <ProfileNameTextField value={vars.profileName || ''} onChange={(v) => setVar('profileName', v)} />
-              <StorageLocationSelector
-                value={vars.storageLocationId}
-                onChange={(v) => setVar('storageLocationId', v)}
-                storageLocations={storageLocations}
-                showPath
-              />
-              <NamingRuleSelector
-                value={vars.namingRuleId}
-                onChange={(v) => setVar('namingRuleId', v)}
-                namingRules={namingRules}
-                showPattern
-                showPreview
-              />
-              <CronTextField value={vars.scheduleCron || ''} onChange={(v) => setVar('scheduleCron', v)} />
             </>
           )}
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={loading}>Cancel</Button>
+        <Button onClick={onClose} disabled={loading}>
+          Cancel
+        </Button>
         {activeStep > 0 && (
-          <Button onClick={() => setActiveStep(activeStep - 1)} disabled={loading}>Back</Button>
+          <Button onClick={() => setActiveStep(activeStep - 1)} disabled={loading}>
+            Back
+          </Button>
         )}
-        {activeStep < (template?.steps?.length || 0) - 1 && (
-          <Button onClick={() => setActiveStep(activeStep + 1)} variant="contained" disabled={!canNext() || loading}>Next</Button>
+        {activeStep < stepIds.length - 1 && (
+          <Button onClick={() => setActiveStep(activeStep + 1)} variant="contained" disabled={!canNext() || loading}>
+            Next
+          </Button>
         )}
-        {activeStep === (template?.steps?.length || 0) - 1 && (
+        {activeStep === stepIds.length - 1 && (
           <Button onClick={handleSubmit} variant="contained" disabled={loading || !canNext()}>
             {loading ? <CircularProgress size={24} /> : 'Create Profile'}
           </Button>

@@ -8,6 +8,9 @@ interface StorageLocationSelectorProps {
   showPath?: boolean;
   required?: boolean;
   fullWidth?: boolean;
+  label?: string;
+  placeholder?: string;
+  helperText?: string;
 }
 
 export function StorageLocationSelector({
@@ -17,6 +20,9 @@ export function StorageLocationSelector({
   showPath = false,
   required = true,
   fullWidth = true,
+  label = 'Storage Location',
+  placeholder = 'Select storage location',
+  helperText,
 }: StorageLocationSelectorProps) {
   const selectedLocation = storageLocations.find((loc) => loc.id === value);
 
@@ -25,12 +31,13 @@ export function StorageLocationSelector({
       <TextField
         fullWidth={fullWidth}
         select
-        label="Storage Location"
+        label={label}
         value={value}
         onChange={(e) => onChange(parseInt(e.target.value, 10))}
         required={required}
+        helperText={helperText}
       >
-        <MenuItem value="">Select storage location</MenuItem>
+        <MenuItem value="">{placeholder}</MenuItem>
         {storageLocations.map((location) => (
           <MenuItem key={location.id} value={location.id}>
             {showPath ? (

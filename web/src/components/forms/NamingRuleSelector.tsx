@@ -11,6 +11,9 @@ interface NamingRuleSelectorProps {
   showPreview?: boolean;
   required?: boolean;
   fullWidth?: boolean;
+  label?: string;
+  placeholder?: string;
+  helperText?: string;
 }
 
 export function NamingRuleSelector({
@@ -21,6 +24,9 @@ export function NamingRuleSelector({
   showPreview = false,
   required = true,
   fullWidth = true,
+  label = 'Naming Rule',
+  placeholder = 'Select naming rule',
+  helperText,
 }: NamingRuleSelectorProps) {
   const [preview, setPreview] = useState<string>('');
 
@@ -48,12 +54,13 @@ export function NamingRuleSelector({
       <TextField
         fullWidth={fullWidth}
         select
-        label="Naming Rule"
+        label={label}
         value={value}
         onChange={(e) => onChange(parseInt(e.target.value, 10))}
         required={required}
+        helperText={helperText}
       >
-        <MenuItem value="">Select naming rule</MenuItem>
+        <MenuItem value="">{placeholder}</MenuItem>
         {namingRules.map((rule) => (
           <MenuItem key={rule.id} value={rule.id}>
             {showPattern ? (

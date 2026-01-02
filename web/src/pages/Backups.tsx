@@ -154,17 +154,13 @@ export default function Backups() {
                       <Alert severity="info">No backup runs for this profile.</Alert>
                     ) : (
                       <Box>
-                        {runs.map((run) => {
+                        {runs.filter(run => run.status === 'completed').map((run) => {
                           const files = filesByRun[run.id] || [];
                           return (
                             <Accordion key={run.id} onChange={(_, expanded) => expanded && loadFilesForRun(run.id)}>
                               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                                 <Box display="flex" alignItems="center" gap={2}>
                                   <Typography variant="subtitle1">Run #{run.id}</Typography>
-                                  <Divider orientation="vertical" flexItem />
-                                  <Typography variant="body2" color="text.secondary">
-                                    Status: {run.status}
-                                  </Typography>
                                 </Box>
                               </AccordionSummary>
                               <AccordionDetails>

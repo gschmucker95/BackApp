@@ -35,9 +35,6 @@ func CORSMiddleware() gin.HandlerFunc {
 //go:embed static/* static/**/*
 var embeddedStaticFiles embed.FS
 
-//go:embed templates/*
-var embeddedTemplates embed.FS
-
 func main() {
 	// Parse command line flags
 	port := flag.Int("port", 8080, "Port to run the server on")
@@ -53,14 +50,6 @@ func main() {
 	scheduler := service.GetScheduler()
 	if err := scheduler.LoadAllSchedules(); err != nil {
 		log.Printf("Warning: Failed to load backup schedules: %v", err)
-	}
-
-	// Ensure templates directory and default templates (using embedded files)
-	templatesFS, err := fs.Sub(embeddedTemplates, "templates")
-	if err != nil {
-		log.Printf("Warning: Failed to access embedded templates: %v", err)
-	} else if err := service.EnsureTemplates(templatesFS); err != nil {
-		log.Printf("Warning: Failed to initialize templates: %v", err)
 	}
 
 	// Create a filesystem for embedded static files

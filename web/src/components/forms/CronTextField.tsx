@@ -8,6 +8,8 @@ interface CronTextFieldProps {
   required?: boolean;
   fullWidth?: boolean;
   helperText?: string;
+  label?: string;
+  placeholder?: string;
 }
 
 export function CronTextField({
@@ -16,6 +18,8 @@ export function CronTextField({
   required = false,
   fullWidth = true,
   helperText = 'Optional: Set a cron schedule for automatic backups',
+  label = 'Schedule (Cron Expression)',
+  placeholder = '0 2 * * * (optional)',
 }: CronTextFieldProps) {
   const cronDescription = useMemo(() => {
     if (!value) return '';
@@ -31,10 +35,10 @@ export function CronTextField({
     <Box>
       <TextField
         fullWidth={fullWidth}
-        label="Schedule (Cron Expression)"
+        label={label}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="0 2 * * * (optional)"
+        placeholder={placeholder}
         helperText={helperText}
         required={required}
       />
